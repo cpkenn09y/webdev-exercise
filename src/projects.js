@@ -1,15 +1,16 @@
-function Project(id, type, name, lastActivity) {
+function Project(id, ghUsername, repoName, branchOrSha) {
     this.id = id;
-    this.type = type;
-    this.name = name;
-    this.lastActivity = lastActivity;
+    this.ghUsername = ghUsername;
+    this.repoName = repoName;
+    this.branchOrSha = branchOrSha;
 }
 
 // The list of all projects currently in the system.
 // (Feel free to imagine this came from a database somewhere on page load.)
 var CURRENT_PROJECTS = [
-    new Project(0, "Training", "Patrick's experimental branch", new Date(2014, 6, 17, 13, 5, 842)),
-    new Project(1, "Testing", "Blind test of autosuggest model", new Date(2014, 6, 21, 18, 44, 229))
+    new Project(0, "cpkenn09y", "webdev-exercise", "current-with-master"),
+    new Project(1, "quixey", "webdev-exercise", "outdated-branch-2"),
+    new Project(2, "ztztdtsdf", "asfagag34234", "rw2323tfd")
 ];
 
 // The current maximum ID, so we know how to allocate an ID for a new project.
@@ -21,9 +22,10 @@ $(function(){
         $.fn.append.apply($container, $.map(projects, function(pj) {
             return $("<tr>").append(
                 $("<td>").text(pj.id),
-                $("<td>").text(pj.type),
-                $("<td>").text(pj.name),
-                $("<td>").text(pj.lastActivity.toString())
+                $("<td>").text(pj.ghUsername),
+                $("<td>").text(pj.repoName),
+                $("<td>").text(pj.branchOrSha),
+                $("<td><i class='status fa'></i></td>")
             );
         }));
     };
@@ -32,16 +34,17 @@ $(function(){
     var createProject = function($form) {
         return new Project(
             MAX_ID + 1,
-            $form.find("#project-type").val(),
-            $form.find("#project-name").val(),
-            new Date()
+            $form.find("#github-name").val(),
+            $form.find("#repo-name").val(),
+            $form.find("#branch-sha").val()
         );
     };
 
     // Clears the data in the form so that it's easy to enter a new project.
     var resetForm = function($form) {
-        $form.find("#project-type").val("");
-        $form.find("#project-name").val("");
+        $form.find("#github-name").val("");
+        $form.find("#repo-name").val("");
+        $form.find("#branch-sha").val("");
         $form.find("input:first").focus();
     };
 
@@ -55,6 +58,34 @@ $(function(){
         CURRENT_PROJECTS.push(pj);
         loadProjects($projectTable, [pj]);
         resetForm($form);
+        checkAndShowAllProjectStatuses();
         e.preventDefault();
     });
+
+    var createQueryURL = function(project) {
+        return 'https://api.github.com/repos/' + project.ghUsername + '/' + project.repoName + '/compare/master...' + project.branchOrSha;
+    };
+
+    var checkAndShowProjectStatus = function(projectIndex) {
+        $.ajax({
+            url: createQueryURL(CURRENT_PROJECTS[projectIndex]),
+            type: 'GET'
+        }).success(function(returnData) {
+            if (returnData.behind_by === 0) {
+                $('#project-list i.status').eq(projectIndex).addClass('fa-thumbs-up green');
+            } else {
+                $('#project-list i.status').eq(projectIndex).addClass('fa-thumbs-down red');
+            }
+        }).error(function(returnData) {
+            $('#project-list i.status').eq(projectIndex).addClass('fa-exclamation-triangle red').text(' invalid data');
+        });
+    };
+
+    var checkAndShowAllProjectStatuses = function() {
+        for (var i = 0; i < CURRENT_PROJECTS.length; i++) {
+            checkAndShowProjectStatus(i);
+        }
+    };
+
+    $(document).ready(checkAndShowAllProjectStatuses);
 });

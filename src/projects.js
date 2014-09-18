@@ -40,45 +40,42 @@ $(function(){
         );
     };
 
-    // Clears the data in the form so that it's easy to enter a new project.
-    var resetForm = function($form) {
-        $form.find("#github-name").val("");
-        $form.find("#repo-name").val("");
-        $form.find("#branch-sha").val("");
-        $form.find("input:first").focus();
-    };
-
     var $projectTable = $("#project-list>tbody");
     loadProjects($projectTable, CURRENT_PROJECTS);
 
-    $("#add-project-form").submit(function(e) {
+    var createProjectAndCheckStatuses = function(e) {
         var $form = $(this);
         pj = createProject($form);
         MAX_ID = pj.id;
         CURRENT_PROJECTS.push(pj);
         loadProjects($projectTable, [pj]);
-        resetForm($form);
+        View.resetForm($form);
         checkAndShowAllProjectStatuses();
         e.preventDefault();
-    });
+    };
 
     var createQueryURL = function(project) {
         return 'https://api.github.com/repos/' + project.ghUsername + '/' + project.repoName + '/compare/master...' + project.branchOrSha;
     };
 
+    var showThumbStatus = function(projectIndex, returnData) {
+        if (returnData.behind_by === 0) {
+            View.$statuses.eq(projectIndex).addClass(View.faPass);
+        } else {
+            View.$statuses.eq(projectIndex).addClass(View.faFail);
+        }
+    };
+
+    var showFailedStatus = function(projectIndex, returnData) {
+        View.$statuses.eq(projectIndex).addClass(View.faInvalid).text(View.textInvalid);
+    };
+
     var checkAndShowProjectStatus = function(projectIndex) {
+        View.updateStatusArea();
         $.ajax({
             url: createQueryURL(CURRENT_PROJECTS[projectIndex]),
             type: 'GET'
-        }).success(function(returnData) {
-            if (returnData.behind_by === 0) {
-                $('#project-list i.status').eq(projectIndex).addClass('fa-thumbs-up green');
-            } else {
-                $('#project-list i.status').eq(projectIndex).addClass('fa-thumbs-down red');
-            }
-        }).error(function(returnData) {
-            $('#project-list i.status').eq(projectIndex).addClass('fa-exclamation-triangle red').text(' invalid data');
-        });
+        }).success(showThumbStatus.bind(this, projectIndex)).error(showFailedStatus.bind(this, projectIndex));
     };
 
     var checkAndShowAllProjectStatuses = function() {
@@ -87,5 +84,11 @@ $(function(){
         }
     };
 
-    $(document).ready(checkAndShowAllProjectStatuses);
+    var runApp = function() {
+        checkAndShowAllProjectStatuses();
+        View.updateStatusArea();
+    };
+
+    $(document).ready(runApp);
+    $(document).on("submit", "#add-project-form", createProjectAndCheckStatuses);
 });
